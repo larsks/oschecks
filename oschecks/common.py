@@ -68,3 +68,9 @@ class ExitCritical(ExitException):
     def __init__(self, msg, duration=None):
         super(ExitCritical, self).__init__('CRITICAL: {}'.format(msg),
                                            duration=duration)
+
+class ExitWTF(ExitException):
+    exit_code = RET_WTF
+    def __init__(self, msg, duration=None):
+        super(ExitCritical, self).__init__('UNKNOWN: {}'.format(msg),
+                                           duration=duration)
