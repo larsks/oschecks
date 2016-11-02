@@ -8,6 +8,8 @@ import oschecks.common as common
 
 @click.group('nova')
 def cli():
+    '''Health checks for Openstack Nova'''
+
     pass
 
 @cli.command()
@@ -20,6 +22,7 @@ def check_api(os_compute_api_version=None,
                    timeout_critical=None,
                    limit=None,
                    **kwargs):
+    '''Check if Nova API is responding.'''
 
     try:
         helper = openstack.OpenStack(**kwargs)
@@ -59,6 +62,7 @@ def check_flavor_exists(os_compute_api_version=None,
                         limit=None,
                         flavor=None,
                         **kwargs):
+    '''Check if the named flavor exists.'''
 
     try:
         helper = openstack.OpenStack(**kwargs)
@@ -102,6 +106,7 @@ def check_server_exists(os_compute_api_version=None,
                         limit=None,
                         server=None,
                         **kwargs):
+    '''Check if the named server exists.'''
 
     try:
         helper = openstack.OpenStack(**kwargs)

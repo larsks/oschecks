@@ -11,6 +11,8 @@ class NoUniqueMatch(Exception):
 
 @click.group('glance')
 def cli():
+    '''Health checks for Openstack Glance'''
+
     pass
 
 @cli.command()
@@ -23,6 +25,8 @@ def check_api(os_image_api_version=None,
                      timeout_critical=None,
                      limit=None,
                      **kwargs):
+    '''Check if the Glance API is responding.'''
+
     try:
         helper = openstack.OpenStack(**kwargs)
         glance = glanceclient.client.Client(os_image_api_version,
@@ -61,6 +65,8 @@ def check_image_exists(os_image_api_version=None,
                        limit=None,
                        image=None,
                        **kwargs):
+    '''Check if the named image exists.'''
+
     try:
         helper = openstack.OpenStack(**kwargs)
         glance = glanceclient.client.Client(os_image_api_version,

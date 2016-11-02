@@ -10,6 +10,7 @@ import oschecks.common as common
 
 @click.group('cinder')
 def cli():
+    '''Health checks for Openstack Cinder'''
     pass
 
 @cli.command()
@@ -22,6 +23,7 @@ def check_api(os_volume_api_version=None,
                      timeout_critical=None,
                      limit=None,
                      **kwargs):
+    '''Check that the Cinder API is responding.'''
 
     try:
         helper = openstack.OpenStack(**kwargs)
@@ -61,6 +63,7 @@ def check_volume_exists(os_volume_api_version=None,
                         limit=None,
                         volume=None,
                         **kwargs):
+    '''Check if the named volume exists.'''
 
     try:
         helper = openstack.OpenStack(**kwargs)

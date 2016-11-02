@@ -9,6 +9,8 @@ import oschecks.common as common
 
 @click.group('keystone')
 def cli():
+    '''Health checks for Openstack Keystone'''
+
     pass
 
 @cli.command()
@@ -21,6 +23,7 @@ def check_api(os_identity_api_version=None,
                    timeout_critical=None,
                    limit=None,
                    **kwargs):
+    '''Check if the Keystone API is responding.'''
 
     try:
         helper = openstack.OpenStack(**kwargs)
@@ -56,6 +59,8 @@ def check_service_exists(os_identity_api_version=None,
                          service_type=None,
                          service_name=None,
                          **kwargs):
+    '''Check if a service of the given type exists in the service
+    catalog.'''
 
     try:
         helper = openstack.OpenStack(**kwargs)
@@ -100,6 +105,8 @@ def check_service_alive(os_identity_api_version=None,
                         status_warning=None,
                         status_critical=None,
                         **kwargs):
+    '''Check if a service of the given type exists in the service
+    catalog and if it reponds to HTTP requests.'''
 
     status_okay = ([int(x) for x in status_okay.split(',')]
                    if status_okay else [])
