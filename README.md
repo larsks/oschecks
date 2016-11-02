@@ -15,17 +15,19 @@ Install:
 
 Enjoy:
 
-    $ oschecks
     Usage: oschecks [OPTIONS] COMMAND [ARGS]...
 
     Options:
-      --help  Show this message and exit.
+      -v, --verbose
+      -d, --debug
+      --help         Show this message and exit.
 
     Commands:
-      cinder
-      glance
-      keystone
-      nova
+      cinder    Health checks for Openstack Cinder
+      glance    Health checks for Openstack Glance
+      keystone  Health checks for Openstack Keystone
+      nova      Health checks for Openstack Nova
+      swift     Health checks for Openstack Swift
 
 ## The checks
 
@@ -50,6 +52,12 @@ Enjoy:
 - `oschecks keystone check_api`
 - `oschecks keystone check_service_exists`
 - `oschecks keystone check_service_alive`
+
+### Swift
+
+- `oschecks swift check_api`
+- `oschecks swift check_container_exists`
+- `oschecks swift check_object_exists`
 
 ## See also
 
