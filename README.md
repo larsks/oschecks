@@ -50,3 +50,9 @@ Enjoy:
 - `oschecks keystone check_api`
 - `oschecks keystone check_service_exists`
 - `oschecks keystone check_service_alive`
+
+## See also
+
+- [Health checks for systemd units][oschecks_systemd]
+
+[oschecks_systemd]: https://github.com/larsks/oschecks_systemd
