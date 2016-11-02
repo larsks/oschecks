@@ -26,7 +26,6 @@ openstack_auth_option_names = [
     'user_domain_id',
     'user_domain_name',
     'username',
-    'identity_api_version'
 ]
 
 openstack_auth_option_defaults = {
@@ -51,12 +50,7 @@ class ClientNotAvailable(Exception):
     pass
 
 class OpenStack(object):
-    def __init__(self, identity_api_version=None, **kwargs):
-        if identity_api_version is not None:
-            raise NotImplementedError('Support for explicitly setting the '
-                                      'identity API version is currently '
-                                      'unimplemented.')
-
+    def __init__(self, **kwargs):
         kwargs = {k: v for k, v in kwargs.items()
                   if k in openstack_auth_option_names}
 

@@ -1,28 +1,21 @@
-## Simple protocol checks
+## Nova
 
-These are simple protocol checks (e.g., if I request a URL, do I get
-an expected response code?)
+- `oschecks nova check_api`
+- `oschecks nova check_server_exists`
+- `oschecks nova check_flavor_exists`
 
-- ochecks.http
+## Glance
 
-## Basic API Checks
+- `oschecks glance check_api`
+- `oschecks glance check_image_exists`
 
-These are performed with Keystone credentials.
+## Cinder
 
-- oschecks.keystone.api
-- oschecks.nova.api
-- oschecks.cinder.api
-- oschecks.glance.api
-- oschecks.heat.api
-- oschecks.zaqar.api
-- oschecks.swift.api
-- oschecks.neutron.api
-- oschecks.ceilometer.api
-- oschecks.mistral.api
-- oschecks.manila.api
-- oschecks.sahara.api
+- `oschecks cinder check_api`
+- `oschecks cinder check_volume_exists`
 
-## Functional API checks
+## Keystone
 
-This will attempt to interact with the remote API.
-
+- `oschecks keystone check_api`
+- `oschecks keystone check_service_exists`
+- `oschecks keystone check_service_alive`
