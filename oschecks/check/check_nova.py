@@ -7,27 +7,27 @@ import oschecks.openstack as openstack
 import oschecks.common as common
 
 @click.group('nova')
-def cli():
+@openstack.apply_openstack_options
+@click.pass_context
+def cli(ctx, **kwargs):
     '''Health checks for Openstack Nova'''
-
-    pass
+    ctx.obj.auth = openstack.OpenStack(**kwargs)
 
 @cli.command()
 @click.option('--os-compute-api-version', default='2',
               envvar='OS_COMPUTE_API_VERSION')
-@openstack.apply_openstack_options
 @common.apply_common_options
-def check_api(os_compute_api_version=None,
-                   timeout_warning=None,
-                   timeout_critical=None,
-                   limit=None,
-                   **kwargs):
+@click.pass_context
+def check_api(ctx,
+              os_compute_api_version=None,
+              timeout_warning=None,
+              timeout_critical=None,
+              limit=None):
     '''Check if Nova API is responding.'''
 
     try:
-        helper = openstack.OpenStack(**kwargs)
         nova = novaclient.client.Client(os_compute_api_version,
-                                        session=helper.sess)
+                                        session=ctx.obj.auth.sess)
 
         with common.Timer() as t:
             servers = nova.servers.list(limit=limit)
@@ -53,21 +53,20 @@ def check_api(os_compute_api_version=None,
 @cli.command()
 @click.option('--os-compute-api-version', default='2',
               envvar='OS_COMPUTE_API_VERSION')
-@openstack.apply_openstack_options
 @common.apply_common_options
 @click.argument('flavor', default='m1.small')
-def check_flavor_exists(os_compute_api_version=None,
+@click.pass_context
+def check_flavor_exists(ctx,
+                        os_compute_api_version=None,
                         timeout_warning=None,
                         timeout_critical=None,
                         limit=None,
-                        flavor=None,
-                        **kwargs):
+                        flavor=None):
     '''Check if the named flavor exists.'''
 
     try:
-        helper = openstack.OpenStack(**kwargs)
         nova = novaclient.client.Client(os_compute_api_version,
-                                        session=helper.sess)
+                                        session=ctx.obj.auth.sess)
 
         try:
             with common.Timer() as t:
@@ -97,21 +96,20 @@ def check_flavor_exists(os_compute_api_version=None,
 @cli.command()
 @click.option('--os-compute-api-version', default='2',
               envvar='OS_COMPUTE_API_VERSION')
-@openstack.apply_openstack_options
 @common.apply_common_options
 @click.argument('server')
-def check_server_exists(os_compute_api_version=None,
+@click.pass_context
+def check_server_exists(ctx,
+                        os_compute_api_version=None,
                         timeout_warning=None,
                         timeout_critical=None,
                         limit=None,
-                        server=None,
-                        **kwargs):
+                        server=None):
     '''Check if the named server exists.'''
 
     try:
-        helper = openstack.OpenStack(**kwargs)
         nova = novaclient.client.Client(os_compute_api_version,
-                                        session=helper.sess)
+                                        session=ctx.obj.auth.sess)
 
         try:
             with common.Timer() as t:

@@ -8,29 +8,28 @@ import oschecks.openstack as openstack
 import oschecks.common as common
 
 @click.group('keystone')
-def cli():
+@openstack.apply_openstack_options
+@click.pass_context
+def cli(ctx, **kwargs):
     '''Health checks for Openstack Keystone'''
-
-    pass
+    ctx.obj.auth = openstack.OpenStack(**kwargs)
 
 @cli.command()
 @click.option('--os-identity-api-version', default='2',
               envvar='OS_IDENTITY_API_VERSION')
-@openstack.apply_openstack_options
 @common.apply_common_options
-def check_api(os_identity_api_version=None,
-                   timeout_warning=None,
-                   timeout_critical=None,
-                   limit=None,
-                   **kwargs):
+@click.pass_context
+def check_api(ctx,
+              os_identity_api_version=None,
+              timeout_warning=None,
+              timeout_critical=None,
+              limit=None):
     '''Check if the Keystone API is responding.'''
 
     try:
-        helper = openstack.OpenStack(**kwargs)
-
         with common.Timer() as t:
             keystone = keystoneclient.client.Client(os_identity_api_version,
-                                                    session=helper.sess)
+                                                    session=ctx.obj.auth.sess)
     except keystoneauth1.exceptions.ClientException as exc:
         raise common.ExitCritical(
             'Failed to authenticate: {}'.format(exc))
@@ -48,25 +47,25 @@ def check_api(os_identity_api_version=None,
 @cli.command()
 @click.option('--os-identity-api-version', default='2',
               envvar='OS_IDENTITY_API_VERSION')
-@openstack.apply_openstack_options
 @common.apply_common_options
 @click.option('--service-name')
 @click.argument('service_type', default='identity')
-def check_service_exists(os_identity_api_version=None,
+@click.pass_context
+def check_service_exists(ctx,
+                         os_identity_api_version=None,
                          timeout_warning=None,
                          timeout_critical=None,
                          limit=None,
                          service_type=None,
-                         service_name=None,
-                         **kwargs):
+                         service_name=None):
     '''Check if a service of the given type exists in the service
     catalog.'''
 
     try:
-        helper = openstack.OpenStack(**kwargs)
         with common.Timer() as t:
-            endpoint_url = helper.sess.get_endpoint(service_type=service_type,
-                                                    service_name=service_name)
+            endpoint_url = ctx.obj.auth.sess.get_endpoint(
+                service_type=service_type,
+                service_name=service_name)
     except keystoneauth1.exceptions.EndpointNotFound:
         raise common.ExitCritical(
             'Service {} does not exist'.format(service_type),
@@ -88,14 +87,15 @@ def check_service_exists(os_identity_api_version=None,
 @cli.command()
 @click.option('--os-identity-api-version', default='2',
               envvar='OS_IDENTITY_API_VERSION')
-@openstack.apply_openstack_options
 @common.apply_common_options
 @click.option('--status-okay', default='200')
 @click.option('--status-warning')
 @click.option('--status-critical')
 @click.option('--service-name')
 @click.argument('service_type', default='identity')
-def check_service_alive(os_identity_api_version=None,
+@click.pass_context
+def check_service_alive(ctx,
+                        os_identity_api_version=None,
                         timeout_warning=None,
                         timeout_critical=None,
                         limit=None,
@@ -116,9 +116,9 @@ def check_service_alive(os_identity_api_version=None,
                        if status_critical else [])
 
     try:
-        helper = openstack.OpenStack(**kwargs)
-        endpoint_url = helper.sess.get_endpoint(service_type=service_type,
-                                                service_name=service_name)
+        endpoint_url = ctx.obj.auth.sess.get_endpoint(
+            service_type=service_type,
+            service_name=service_name)
         with common.Timer() as t:
             res = requests.get(endpoint_url)
     except requests.exceptions.ConnectionError:

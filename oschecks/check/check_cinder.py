@@ -9,26 +9,27 @@ import oschecks.openstack as openstack
 import oschecks.common as common
 
 @click.group('cinder')
-def cli():
+@openstack.apply_openstack_options
+@click.pass_context
+def cli(ctx, **kwargs):
     '''Health checks for Openstack Cinder'''
-    pass
+    ctx.obj.auth = openstack.OpenStack(**kwargs)
 
 @cli.command()
 @click.option('--os-volume-api-version', default='2',
               envvar='OS_COMPUTE_API_VERSION')
-@openstack.apply_openstack_options
 @common.apply_common_options
-def check_api(os_volume_api_version=None,
-                     timeout_warning=None,
-                     timeout_critical=None,
-                     limit=None,
-                     **kwargs):
+@click.pass_context
+def check_api(ctx,
+              os_volume_api_version=None,
+              timeout_warning=None,
+              timeout_critical=None,
+              limit=None):
     '''Check that the Cinder API is responding.'''
 
     try:
-        helper = openstack.OpenStack(**kwargs)
         cinder = cinderclient.client.Client(os_volume_api_version,
-                                            session=helper.sess)
+                                            session=ctx.obj.auth.sess)
 
         with common.Timer() as t:
             volumes = cinder.volumes.list(limit=limit)
@@ -54,21 +55,20 @@ def check_api(os_volume_api_version=None,
 @cli.command()
 @click.option('--os-volume-api-version', default='2',
               envvar='OS_COMPUTE_API_VERSION')
-@openstack.apply_openstack_options
 @common.apply_common_options
 @click.argument('volume')
-def check_volume_exists(os_volume_api_version=None,
+@click.pass_context
+def check_volume_exists(ctx,
+                        os_volume_api_version=None,
                         timeout_warning=None,
                         timeout_critical=None,
                         limit=None,
-                        volume=None,
-                        **kwargs):
+                        volume=None):
     '''Check if the named volume exists.'''
 
     try:
-        helper = openstack.OpenStack(**kwargs)
         cinder = cinderclient.client.Client(os_volume_api_version,
-                                            session=helper.sess)
+                                            session=ctx.obj.auth.sess)
 
         try:
             with common.Timer() as t:

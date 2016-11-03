@@ -10,27 +10,27 @@ class NoUniqueMatch(Exception):
     pass
 
 @click.group('glance')
-def cli():
+@openstack.apply_openstack_options
+@click.pass_context
+def cli(ctx, **kwargs):
     '''Health checks for Openstack Glance'''
-
-    pass
+    ctx.obj.auth = openstack.OpenStack(**kwargs)
 
 @cli.command()
 @click.option('--os-image-api-version', default='2',
               envvar='OS_IMAGE_API_VERSION')
-@openstack.apply_openstack_options
 @common.apply_common_options
-def check_api(os_image_api_version=None,
-                     timeout_warning=None,
-                     timeout_critical=None,
-                     limit=None,
-                     **kwargs):
+@click.pass_context
+def check_api(ctx,
+              os_image_api_version=None,
+              timeout_warning=None,
+              timeout_critical=None,
+              limit=None):
     '''Check if the Glance API is responding.'''
 
     try:
-        helper = openstack.OpenStack(**kwargs)
         glance = glanceclient.client.Client(os_image_api_version,
-                                            session=helper.sess)
+                                            session=ctx.obj.auth.sess)
 
         with common.Timer() as t:
             images = list(glance.images.list(limit=limit))
@@ -56,21 +56,20 @@ def check_api(os_image_api_version=None,
 @cli.command()
 @click.option('--os-image-api-version', default='2',
               envvar='OS_IMAGE_API_VERSION')
-@openstack.apply_openstack_options
 @common.apply_common_options
 @click.argument('image')
-def check_image_exists(os_image_api_version=None,
+@click.pass_context
+def check_image_exists(ctx,
+                       os_image_api_version=None,
                        timeout_warning=None,
                        timeout_critical=None,
                        limit=None,
-                       image=None,
-                       **kwargs):
+                       image=None):
     '''Check if the named image exists.'''
 
     try:
-        helper = openstack.OpenStack(**kwargs)
         glance = glanceclient.client.Client(os_image_api_version,
-                                            session=helper.sess)
+                                            session=ctx.obj.auth.sess)
 
         try:
             with common.Timer() as t:

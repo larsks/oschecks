@@ -7,22 +7,23 @@ import oschecks.openstack as openstack
 import oschecks.common as common
 
 @click.group('swift')
-def cli():
+@openstack.apply_openstack_options
+@click.pass_context
+def cli(ctx, **kwargs):
     '''Health checks for Openstack Swift'''
-    pass
+    ctx.obj.auth = openstack.OpenStack(**kwargs)
 
 @cli.command()
-@openstack.apply_openstack_options
 @common.apply_common_options
-def check_api(timeout_warning=None,
+@click.pass_context
+def check_api(ctx,
+              timeout_warning=None,
               timeout_critical=None,
-              limit=None,
-              **kwargs):
+              limit=None):
     '''Check that the Swift API is responding.'''
 
     try:
-        helper = openstack.OpenStack(**kwargs)
-        client = swiftclient.client.Connection(session=helper.sess)
+        client = swiftclient.client.Connection(session=ctx.obj.auth.sess)
 
         with common.Timer() as t:
             containers = client.get_account(limit=limit)
@@ -46,19 +47,18 @@ def check_api(timeout_warning=None,
         raise common.ExitOkay(msg, duration=t.interval)
 
 @cli.command()
-@openstack.apply_openstack_options
 @common.apply_common_options
 @click.argument('container')
-def check_container_exists(timeout_warning=None,
+@click.pass_context
+def check_container_exists(ctx,
+                           timeout_warning=None,
                            timeout_critical=None,
                            limit=None,
-                           container=None,
-                           **kwargs):
+                           container=None):
     '''Check if the named container exists.'''
 
     try:
-        helper = openstack.OpenStack(**kwargs)
-        client = swiftclient.client.Connection(session=helper.sess)
+        client = swiftclient.client.Connection(session=ctx.obj.auth.sess)
 
         with common.Timer() as t:
             res = client.get_container(container)
@@ -84,21 +84,20 @@ def check_container_exists(timeout_warning=None,
 
 
 @cli.command()
-@openstack.apply_openstack_options
 @common.apply_common_options
 @click.argument('container')
 @click.argument('obj')
-def check_object_exists(timeout_warning=None,
+@click.pass_context
+def check_object_exists(ctx,
+                        timeout_warning=None,
                         timeout_critical=None,
                         limit=None,
                         container=None,
-                        obj=None,
-                        **kwargs):
+                        obj=None):
     '''Check if the named object exists in the named container exists.'''
 
     try:
-        helper = openstack.OpenStack(**kwargs)
-        client = swiftclient.client.Connection(session=helper.sess)
+        client = swiftclient.client.Connection(session=ctx.obj.auth.sess)
 
         with common.Timer() as t:
             res = client.get_object(container, obj)

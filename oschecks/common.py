@@ -14,7 +14,7 @@ common_options = [
     click.option('--critical', '-c', 'timeout_critical',
                  type=int, default=10,
                  help='Critical timeout for API calls'),
-    click.option('--limit', type=int, default=2,
+    click.option('--limit', '-l', type=int, default=1,
                   help='Maximum number of objects to list')
 ]
 
