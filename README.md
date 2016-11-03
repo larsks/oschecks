@@ -15,49 +15,65 @@ Install:
 
 Enjoy:
 
-    Usage: oschecks [OPTIONS] COMMAND [ARGS]...
+    $ oschecks --help
+    usage: oschecks [--version] [-v | -q] [--log-file LOG_FILE] [-h] [--debug]
 
-    Options:
-      -v, --verbose
-      -d, --debug
-      --help         Show this message and exit.
+    oschecks health checks
+
+    optional arguments:
+      --version            show program's version number and exit
+      -v, --verbose        Increase verbosity of output. Can be repeated.
+      -q, --quiet          Suppress output except warnings and errors.
+      --log-file LOG_FILE  Specify a file to log output. Disabled by default.
+      -h, --help           Show help message and exit.
+      --debug              Show tracebacks on errors.
 
     Commands:
-      cinder    Health checks for Openstack Cinder
-      glance    Health checks for Openstack Glance
-      keystone  Health checks for Openstack Keystone
-      nova      Health checks for Openstack Nova
-      swift     Health checks for Openstack Swift
+      cinder api
+      cinder volume exists
+      complete       print bash completion command
+      glance api
+      glance image exists
+      help           print detailed help for another command
+      keystone api
+      keystone service alive
+      keystone service exists
+      nova api
+      nova flavor exists
+      nova server exists
+      swift api
+      swift container exists
+      swift object exists
 
 ## The checks
 
 ### Nova
 
-- `oschecks nova check_api`
-- `oschecks nova check_server_exists`
-- `oschecks nova check_flavor_exists`
+- `oschecks nova api`
+- `oschecks nova server exists <server_name_or_id>`
+- `oschecks nova flavor exists <flavor_name_or_id>`
 
 ### Glance
 
-- `oschecks glance check_api`
-- `oschecks glance check_image_exists`
+- `oschecks glance api`
+- `oschecks glance image exists <image_name_or_id>`
 
 ### Cinder
 
-- `oschecks cinder check_api`
-- `oschecks cinder check_volume_exists`
+- `oschecks cinder api`
+- `oschecks cinder volume exists <volume_name_or_id>`
 
 ### Keystone
 
-- `oschecks keystone check_api`
-- `oschecks keystone check_service_exists`
-- `oschecks keystone check_service_alive`
+- `oschecks keystone api`
+- `oschecks keystone service exists <service_type> [<service_name>]`
+- `oschecks keystone service alive <service_type> [<service_name>]`
 
 ### Swift
 
-- `oschecks swift check_api`
-- `oschecks swift check_container_exists`
-- `oschecks swift check_object_exists`
+- `oschecks swift api`
+- `oschecks swift container exists <container_name>`
+- `oschecks swift object exists <container_name> <object_name>`
 
 ## See also
 

@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import click
+import cliff.command
 import logging
 import keystoneauth1
 import os_client_config as os_client_config
@@ -9,7 +9,7 @@ import oschecks.common as common
 
 LOG = logging.getLogger(__name__)
 
-openstack_auth_option_names = [
+openstack_option_names = [
     'auth_url',
     'domain_id',
     'domain_name',
@@ -27,20 +27,9 @@ openstack_auth_option_names = [
     'username',
 ]
 
-openstack_auth_option_defaults = {
+openstack_option_defaults = {
     'default_domain_name': 'default',
 }
-
-openstack_options = [
-    click.option('--cloud',
-                 help='Named cloud from os_client_config clouds.yaml')
-] + [
-    click.option('--os-{}'.format(name.replace('_', '-')),
-                 name,
-                 default=openstack_auth_option_defaults.get(name),
-                 envvar='OS_{}'.format(name.upper()))
-    for name in openstack_auth_option_names
-]
 
 
 def apply_openstack_options(func):
@@ -54,13 +43,13 @@ class ClientNotAvailable(Exception):
     pass
 
 
-class OpenStack(object):
+class Openstack(object):
     '''Loads authentication configuration using os_client_config and creates
     a keystoneauth1 session for authenticating to other services.'''
 
     def __init__(self, cloud=None, **kwargs):
         params = {k: v for k, v in kwargs.items()
-                  if k in openstack_auth_option_names}
+                  if k in openstack_option_names}
 
         try:
             cfg = (
@@ -79,5 +68,28 @@ class OpenStack(object):
         self.sess = sess
 
 
+class OpenstackAuthCommand(common.CheckCommand):
+    def get_parser(self, prog_name):
+        p = super(OpenstackAuthCommand, self).get_parser(prog_name)
+        g = p.add_argument_group('Openstack Authentication Options')
+
+        for opt in openstack_option_names:
+            g.add_argument('--os-{}'.format(opt.replace('_', '-')),
+                           dest=opt,
+                           default=openstack_option_defaults.get(opt))
+
+        g.add_argument('--cloud')
+
+        return p
+
+    def take_action(self, parsed_args):
+        self.auth = Openstack(**vars(parsed_args))
+
+
+class OpenstackCommand(OpenstackAuthCommand,
+                       common.TimeoutCommand,
+                       common.LimitCommand):
+    pass
+
 if __name__ == '__main__':
-    o = OpenStack()
+    o = Openstack()

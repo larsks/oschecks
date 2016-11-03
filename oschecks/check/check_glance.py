@@ -1,100 +1,96 @@
-import click
 import glanceclient
-
 import oschecks.openstack as openstack
 import oschecks.common as common
 
 
-class NoUniqueMatch(Exception):
+class NonUniqueMatch(Exception):
     pass
 
 
-@click.group('glance')
-@openstack.apply_openstack_options
-@click.pass_context
-def cli(ctx, **kwargs):
-    '''Health checks for Openstack Glance'''
-    ctx.obj.auth = openstack.OpenStack(**kwargs)
+class CheckAPI(openstack.OpenstackCommand):
+    def get_parser(self, prog_name):
+        p = super(CheckAPI, self).get_parser(prog_name)
 
+        g = p.add_argument_group('Image API Options')
+        g.add_argument('--os-image-api-version', default='2')
 
-@cli.command()
-@click.option('--os-image-api-version', default='2',
-              envvar='OS_IMAGE_API_VERSION')
-@common.apply_common_options
-@click.pass_context
-def check_api(ctx,
-              os_image_api_version=None,
-              timeout_warning=None,
-              timeout_critical=None,
-              limit=None):
-    '''Check if the Glance API is responding.'''
+        return p
 
-    try:
-        glance = glanceclient.client.Client(os_image_api_version,
-                                            session=ctx.obj.auth.sess)
-
-        with common.Timer() as t:
-            images = list(glance.images.list(limit=limit))
-
-    except glanceclient.exc.ClientException as exc:
-        raise common.ExitCritical(
-            'Failed to list images: {}'.format(exc),
-            duration=t.interval)
-
-    msg = 'Found {} images'.format(len(images))
-
-    if timeout_critical is not None and t.interval >= timeout_critical:
-        raise common.ExitCritical(msg, duration=t.interval)
-    elif timeout_warning is not None and t.interval >= timeout_warning:
-        raise common.ExitWarning(msg, duration=t.interval)
-    else:
-        raise common.ExitOkay(msg, duration=t.interval)
-
-
-@cli.command()
-@click.option('--os-image-api-version', default='2',
-              envvar='OS_IMAGE_API_VERSION')
-@common.apply_common_options
-@click.argument('image')
-@click.pass_context
-def check_image_exists(ctx,
-                       os_image_api_version=None,
-                       timeout_warning=None,
-                       timeout_critical=None,
-                       limit=None,
-                       image=None):
-    '''Check if the named image exists.'''
-
-    try:
-        glance = glanceclient.client.Client(os_image_api_version,
-                                            session=ctx.obj.auth.sess)
+    def take_action(self, parsed_args):
+        '''Check if the Glance API is responding.'''
+        super(CheckAPI, self).take_action(parsed_args)
 
         try:
+            glance = glanceclient.client.Client(
+                parsed_args.os_image_api_version,
+                session=self.auth.sess)
+
             with common.Timer() as t:
-                res = glance.images.get(image)
-        except glanceclient.exc.NotFound:
-            with common.Timer() as t:
-                res = [x for x in glance.images.list()
-                       if x.name == image]
+                images = list(glance.images.list(
+                    limit=parsed_args.limit))
 
-                if len(res) > 1:
-                    raise NoUniqueMatch()
+        except glanceclient.exc.ClientException as exc:
+            return (common.RET_CRIT,
+                    'Failed to list images: {}'.format(exc),
+                    t)
 
-                res = res[0]
-    except NoUniqueMatch:
-        raise common.ExitWarning(
-            'Too many matches for image {}'.format(image),
-            duration=t.interval)
-    except glanceclient.exc.ClientException as exc:
-        raise common.ExitCritical(
-            'Failed to get images {}: {}'.format(image, exc),
-            duration=t.interval)
+        msg = 'Found {} images'.format(len(images))
 
-    msg = 'Found images {} with id {}'.format(res.name, res.id)
+        return (common.RET_OKAY, msg, t)
 
-    if timeout_critical is not None and t.interval >= timeout_critical:
-        raise common.ExitCritical(msg, duration=t.interval)
-    elif timeout_warning is not None and t.interval >= timeout_warning:
-        raise common.ExitWarning(msg, duration=t.interval)
-    else:
-        raise common.ExitOkay(msg, duration=t.interval)
+
+class CheckImageExists(openstack.OpenstackCommand):
+    def get_parser(self, prog_name):
+        p = super(CheckImageExists, self).get_parser(prog_name)
+
+        g = p.add_argument_group('Image API Options')
+        g.add_argument('--os-image-api-version', default='2')
+        g.add_argument('image_name')
+
+        return p
+
+    def take_action(self, parsed_args):
+        '''Check if the named image exists.'''
+        super(CheckImageExists, self).take_action(parsed_args)
+
+        try:
+            glance = glanceclient.client.Client(
+                parsed_args.os_image_api_version,
+                session=self.auth.sess)
+
+            try:
+                with common.Timer() as t:
+                    image = glance.images.get(
+                        parsed_args.image_name)
+            except glanceclient.exc.NotFound:
+                with common.Timer() as t:
+                    images = [image for image in glance.images.list()
+                              if image.name == parsed_args.image_name]
+
+                    if not images:
+                        raise glanceclient.exc.NotFound(
+                            parsed_args.image_name)
+
+                    if len(images) > 1:
+                        raise NonUniqueMatch()
+
+                    image = images[0]
+        except NonUniqueMatch:
+            return (common.RET_WARN,
+                    'Too many matches for image name {}'.format(
+                        parsed_args.image_name),
+                    t)
+        except glanceclient.exc.NotFound as exc:
+            return (common.RET_CRIT,
+                    'Image named {} does not exist.'.format(
+                        parsed_args.image_name),
+                    t)
+        except glanceclient.exc.ClientException as exc:
+            return (common.RET_CRIT,
+                    'Failed to list images: {}'.format(exc),
+                    t)
+
+        msg = 'Found image {} with id {}'.format(
+            image.name, image.id)
+
+        return (common.RET_OKAY, msg, t)

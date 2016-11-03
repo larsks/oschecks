@@ -1,117 +1,106 @@
-import click
 import swiftclient
-
 import oschecks.openstack as openstack
 import oschecks.common as common
 
 
-@click.group('swift')
-@openstack.apply_openstack_options
-@click.pass_context
-def cli(ctx, **kwargs):
-    '''Health checks for Openstack Swift'''
-    ctx.obj.auth = openstack.OpenStack(**kwargs)
+class CheckAPI(openstack.OpenstackCommand):
+    def take_action(self, parsed_args):
+        '''Check if the Glance API is responding.'''
+        super(CheckAPI, self).take_action(parsed_args)
+
+        try:
+            swift = swiftclient.client.Connection(session=self.auth.sess)
+
+            with common.Timer() as t:
+                # XXX: It looks like swiftclient ignores the limit
+                # parameter.
+                containers = swift.get_account(
+                    limit=parsed_args.limit)
+        except swiftclient.exceptions.ClientException as exc:
+            return (common.RET_CRIT,
+                    'Failed to list containers: {}'.format(exc),
+                    t)
+
+        msg = 'Found {} containers'.format(len(containers))
+
+        return (common.RET_OKAY, msg, t)
 
 
-@cli.command()
-@common.apply_common_options
-@click.pass_context
-def check_api(ctx,
-              timeout_warning=None,
-              timeout_critical=None,
-              limit=None):
-    '''Check that the Swift API is responding.'''
+class CheckContainerExists(openstack.OpenstackCommand):
+    def get_parser(self, prog_name):
+        p = super(CheckContainerExists, self).get_parser(prog_name)
 
-    try:
-        client = swiftclient.client.Connection(session=ctx.obj.auth.sess)
+        g = p.add_argument_group('Object Storage API Options')
+        g.add_argument('container_name')
 
-        with common.Timer() as t:
-            containers = client.get_account(limit=limit)
+        return p
 
-    except swiftclient.exceptions.ClientException as exc:
-        raise common.ExitCritical(
-            'Failed to list containers: {}'.format(exc),
-            duration=t.interval)
+    def take_action(self, parsed_args):
+        '''Check if the Glance API is responding.'''
+        super(CheckContainerExists, self).take_action(parsed_args)
 
-    msg = 'Found {} containers'.format(len(containers))
+        try:
+            swift = swiftclient.client.Connection(session=self.auth.sess)
 
-    if timeout_critical is not None and t.interval >= timeout_critical:
-        raise common.ExitCritical(msg, duration=t.interval)
-    elif timeout_warning is not None and t.interval >= timeout_warning:
-        raise common.ExitWarning(msg, duration=t.interval)
-    else:
-        raise common.ExitOkay(msg, duration=t.interval)
+            with common.Timer() as t:
+                with common.Timer() as t:
+                    container = swift.get_container(
+                        parsed_args.container_name)
+        except swiftclient.exceptions.ClientException as exc:
+            if exc.http_status == 404:
+                msg = 'Container {} does not exist'.format(
+                    parsed_args.container_name)
+            else:
+                msg = 'Failed to retrieve container {}: {}'.format(
+                    parsed_args.container_name, exc),
 
+            return (common.RET_CRIT, msg, t)
 
-@cli.command()
-@common.apply_common_options
-@click.argument('container')
-@click.pass_context
-def check_container_exists(ctx,
-                           timeout_warning=None,
-                           timeout_critical=None,
-                           limit=None,
-                           container=None):
-    '''Check if the named container exists.'''
+        msg = 'Found container {} with {} objects'.format(
+            parsed_args.container_name,
+            container[0]['x-container-object-count'])
 
-    try:
-        client = swiftclient.client.Connection(session=ctx.obj.auth.sess)
-
-        with common.Timer() as t:
-            res = client.get_container(container)
-    except swiftclient.exceptions.ClientException as exc:
-        if exc.http_status == 404:
-            msg = 'Container {} does not exist'.format(container)
-        else:
-            msg = 'Failed to get container {}: {}'.format(container, exc),
-
-        raise common.ExitCritical(msg, duration=t.interval)
-
-    msg = 'Found container {} with {} objects'.format(
-        container, res[0]['x-container-object-count'])
-
-    if timeout_critical is not None and t.interval >= timeout_critical:
-        raise common.ExitCritical(msg, duration=t.interval)
-    elif timeout_warning is not None and t.interval >= timeout_warning:
-        raise common.ExitWarning(msg, duration=t.interval)
-    else:
-        raise common.ExitOkay(msg, duration=t.interval)
+        return (common.RET_OKAY, msg, t)
 
 
-@cli.command()
-@common.apply_common_options
-@click.argument('container')
-@click.argument('obj')
-@click.pass_context
-def check_object_exists(ctx,
-                        timeout_warning=None,
-                        timeout_critical=None,
-                        limit=None,
-                        container=None,
-                        obj=None):
-    '''Check if the named object exists in the named container exists.'''
+class CheckObjectExists(openstack.OpenstackCommand):
+    def get_parser(self, prog_name):
+        p = super(CheckObjectExists, self).get_parser(prog_name)
 
-    try:
-        client = swiftclient.client.Connection(session=ctx.obj.auth.sess)
+        g = p.add_argument_group('Object Storage API Options')
+        g.add_argument('container_name')
+        g.add_argument('object_name')
 
-        with common.Timer() as t:
-            res = client.get_object(container, obj)
-    except swiftclient.exceptions.ClientException as exc:
-        if exc.http_status == 404:
-            msg = 'Object {} in container {} does not exist'.format(
-                obj, container)
-        else:
-            msg = 'Failed to get object {} in container {}: {}'.format(
-                obj, container, exc),
+        return p
 
-        raise common.ExitCritical(msg, duration=t.interval)
+    def take_action(self, parsed_args):
+        '''Check if the Glance API is responding.'''
+        super(CheckObjectExists, self).take_action(parsed_args)
 
-    msg = 'Found object {} in container {} with {} bytes'.format(
-        obj, container, res[0]['content-length'])
+        try:
+            swift = swiftclient.client.Connection(session=self.auth.sess)
 
-    if timeout_critical is not None and t.interval >= timeout_critical:
-        raise common.ExitCritical(msg, duration=t.interval)
-    elif timeout_warning is not None and t.interval >= timeout_warning:
-        raise common.ExitWarning(msg, duration=t.interval)
-    else:
-        raise common.ExitOkay(msg, duration=t.interval)
+            with common.Timer() as t:
+                with common.Timer() as t:
+                    container = swift.get_object(
+                        parsed_args.container_name,
+                        parsed_args.object_name)
+        except swiftclient.exceptions.ClientException as exc:
+            if exc.http_status == 404:
+                msg = 'Object {} in container {} does not exist'.format(
+                    parsed_args.object_name,
+                    parsed_args.container_name)
+            else:
+                msg = 'Failed to retrieve object {} fromContainer container {}: {}'.format(
+                    parsed_args.object_name,
+                    parsed_args.container_name,
+                    exc),
+
+            return (common.RET_CRIT, msg, t)
+
+        msg = 'Found object {} in container {} with {} bytes'.format(
+            parsed_args.object_name,
+            parsed_args.container_name,
+            container[0]['content-length'])
+
+        return (common.RET_OKAY, msg, t)

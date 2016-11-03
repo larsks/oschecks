@@ -1,4 +1,3 @@
-import click
 import keystoneauth1
 import keystoneclient
 import requests
@@ -7,142 +6,124 @@ import oschecks.openstack as openstack
 import oschecks.common as common
 
 
-@click.group('keystone')
-@openstack.apply_openstack_options
-@click.pass_context
-def cli(ctx, **kwargs):
-    '''Health checks for Openstack Keystone'''
-    ctx.obj.auth = openstack.OpenStack(**kwargs)
+class CheckAPI(openstack.OpenstackCommand):
+    def get_parser(self, prog_name):
+        p = super(CheckAPI, self).get_parser(prog_name)
+
+        g = p.add_argument_group('Identity API Options')
+        g.add_argument('--os-identity-api-version')
+
+        return p
+
+    def take_action(self, parsed_args):
+        '''Check if the Keystone API is responding.'''
+        super(CheckAPI, self).take_action(parsed_args)
+
+        try:
+            with common.Timer() as t:
+                keystone = keystoneclient.client.Client(
+                    parsed_args.os_identity_api_version,
+                    session=self.auth.sess)
+
+                # this just stops flake8 from complaining
+                keystone
+        except keystoneauth1.exceptions.ClientException as exc:
+            return(common.RET_CRIT,
+                   'Failed to authenticate: {}'.format(exc),
+                   None)
+
+        msg = 'Keystone is active'
+
+        return (common.RET_OKAY, msg, t)
 
 
-@cli.command()
-@click.option('--os-identity-api-version', default='2',
-              envvar='OS_IDENTITY_API_VERSION')
-@common.apply_common_options
-@click.pass_context
-def check_api(ctx,
-              os_identity_api_version=None,
-              timeout_warning=None,
-              timeout_critical=None,
-              limit=None):
-    '''Check if the Keystone API is responding.'''
+class CheckServiceExists(openstack.OpenstackCommand):
+    def get_parser(self, prog_name):
+        p = super(CheckServiceExists, self).get_parser(prog_name)
 
-    try:
-        with common.Timer() as t:
-            keystone = keystoneclient.client.Client(
-                os_identity_api_version,
-                session=ctx.obj.auth.sess)
+        g = p.add_argument_group('Identity API Options')
+        g.add_argument('--os-identity-api-version')
+        g.add_argument('service_type', nargs='?', default='identity')
+        g.add_argument('service_name', nargs='?')
 
-            # this just stops flake8 from complaining
-            keystone
-    except keystoneauth1.exceptions.ClientException as exc:
-        raise common.ExitCritical(
-            'Failed to authenticate: {}'.format(exc))
+        return p
 
-    msg = 'Keystone is active'
+    def take_action(self, parsed_args):
+        '''Check if a service of the given type exists in the service
+        catalog.'''
 
-    if timeout_critical is not None and t.interval >= timeout_critical:
-        raise common.ExitCritical(msg, duration=t.interval)
-    elif timeout_warning is not None and t.interval >= timeout_warning:
-        raise common.ExitWarning(msg, duration=t.interval)
-    else:
-        raise common.ExitOkay(msg, duration=t.interval)
+        super(CheckServiceExists, self).take_action(parsed_args)
 
+        try:
+            with common.Timer() as t:
+                endpoint_url = self.auth.sess.get_endpoint(
+                    service_type=parsed_args.service_type,
+                    service_name=parsed_args.service_name)
+        except keystoneauth1.exceptions.EndpointNotFound:
+            return (common.RET_CRIT,
+                    'Service {} does not exist'.format(
+                        parsed_args.service_type),
+                    t)
 
-@cli.command()
-@click.option('--os-identity-api-version', default='2',
-              envvar='OS_IDENTITY_API_VERSION')
-@common.apply_common_options
-@click.option('--service-name')
-@click.argument('service_type', default='identity')
-@click.pass_context
-def check_service_exists(ctx,
-                         os_identity_api_version=None,
-                         timeout_warning=None,
-                         timeout_critical=None,
-                         limit=None,
-                         service_type=None,
-                         service_name=None):
-    '''Check if a service of the given type exists in the service
-    catalog.'''
+        msg = 'Service {} exists at {}'.format(
+            parsed_args.service_type, endpoint_url)
 
-    try:
-        with common.Timer() as t:
-            endpoint_url = ctx.obj.auth.sess.get_endpoint(
-                service_type=service_type,
-                service_name=service_name)
-    except keystoneauth1.exceptions.EndpointNotFound:
-        raise common.ExitCritical(
-            'Service {} does not exist'.format(service_type),
-            duration=t.interval)
+        return (common.RET_OKAY, msg, t)
 
-    msg = 'Service {} exists at {}'.format(service_type, endpoint_url)
+class CheckServiceAlive(openstack.OpenstackCommand):
+    def get_parser(self, prog_name):
+        p = super(CheckServiceAlive, self).get_parser(prog_name)
 
-    if timeout_critical is not None and t.interval >= timeout_critical:
-        raise common.ExitCritical(msg, duration=t.interval)
-    elif timeout_warning is not None and t.interval >= timeout_warning:
-        raise common.ExitWarning(msg, duration=t.interval)
-    else:
-        raise common.ExitOkay(msg, duration=t.interval)
+        g = p.add_argument_group('Identity API Options')
+        g.add_argument('--os-identity-api-version')
+        g.add_argument('service_type', nargs='?', default='identity')
+        g.add_argument('service_name', nargs='?')
 
+        g = p.add_argument_group('HTTP Request Options')
+        g.add_argument('--status-okay',
+                       action='append',
+                       default=[200],
+                       type=int)
+        g.add_argument('--status-warning',
+                       action='append',
+                       default=[])
+        g.add_argument('--status-critical',
+                       action='append',
+                       default=[])
 
-@cli.command()
-@click.option('--os-identity-api-version', default='2',
-              envvar='OS_IDENTITY_API_VERSION')
-@common.apply_common_options
-@click.option('--status-okay', default='200')
-@click.option('--status-warning')
-@click.option('--status-critical')
-@click.option('--service-name')
-@click.argument('service_type', default='identity')
-@click.pass_context
-def check_service_alive(ctx,
-                        os_identity_api_version=None,
-                        timeout_warning=None,
-                        timeout_critical=None,
-                        limit=None,
-                        service_type=None,
-                        service_name=None,
-                        status_okay=None,
-                        status_warning=None,
-                        status_critical=None,
-                        **kwargs):
-    '''Check if a service of the given type exists in the service
-    catalog and if it reponds to HTTP requests.'''
+        return p
 
-    status_okay = ([int(x) for x in status_okay.split(',')]
-                   if status_okay else [])
-    status_warning = ([int(x) for x in status_warning.split(',')]
-                      if status_warning else [])
-    status_critical = ([int(x) for x in status_critical.split(',')]
-                       if status_critical else [])
+    def take_action(self, parsed_args):
+        '''Check if a service of the given type exists in the service
+        catalog and if it reponds to HTTP requests.'''
 
-    try:
-        endpoint_url = ctx.obj.auth.sess.get_endpoint(
-            service_type=service_type,
-            service_name=service_name)
-        with common.Timer() as t:
-            res = requests.get(endpoint_url)
-    except requests.exceptions.ConnectionError:
-        raise common.ExitCritical(
-            'Cannot connect to service {} at {}'.format(
-                service_type, endpoint_url))
-    except keystoneauth1.exceptions.EndpointNotFound:
-        raise common.ExitCritical(
-            'Service {} does not exist'.format(service_type),
-            duration=t.interval)
+        super(CheckServiceAlive, self).take_action(parsed_args)
 
-    msg = 'Received status {} from service {} at {}'.format(
-        res.status_code, service_type, endpoint_url)
+        try:
+            endpoint_url = self.auth.sess.get_endpoint(
+                service_type=parsed_args.service_type,
+                service_name=parsed_args.service_name)
 
-    if res.status_code in status_warning:
-        raise common.ExitWarning(msg, duration=t.interval)
-    elif res.status_code not in status_okay:
-        raise common.ExitCritical(msg, duration=t.interval)
+            with common.Timer() as t:
+                res = requests.get(endpoint_url)
+        except keystoneauth1.exceptions.EndpointNotFound:
+            return (common.RET_CRIT,
+                    'Service {} does not exist'.format(
+                        parsed_args.service_type),
+                    t)
+        except requests.exceptions.ConnectionError:
+            raise common.ExitCritical(
+                'Cannot connect to service {} at {}'.format(
+                    parsed_args.service_type, endpoint_url))
 
-    if timeout_critical is not None and t.interval >= timeout_critical:
-        raise common.ExitCritical(msg, duration=t.interval)
-    elif timeout_warning is not None and t.interval >= timeout_warning:
-        raise common.ExitWarning(msg, duration=t.interval)
-    else:
-        raise common.ExitOkay(msg, duration=t.interval)
+        msg = 'Received status {} from service {} at {}'.format(
+            res.status_code, parsed_args.service_type, endpoint_url)
+
+        exitcode = common.RET_OKAY
+
+        if res.status_code in parsed_args.status_warning:
+            exitcode = common.RET_WARN
+        elif res.status_code not in parsed_args.status_okay:
+            exitcode = common.RET_CRIT
+
+        return (exitcode, msg, t)
