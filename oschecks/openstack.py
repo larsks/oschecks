@@ -3,10 +3,10 @@
 import click
 import logging
 import os
-import keystoneauth1.loading
-import keystoneauth1.session
+import keystoneauth1
+import os_client_config as os_client_config
 
-from novaclient import client
+import oschecks.common as common
 
 LOG = logging.getLogger(__name__)
 
@@ -33,6 +33,9 @@ openstack_auth_option_defaults = {
 }
 
 openstack_options = [
+    click.option('--cloud',
+                 help='Named cloud from os_client_config clouds.yaml')
+] + [
     click.option('--os-{}'.format(name.replace('_', '-')),
                  name,
                  default=openstack_auth_option_defaults.get(name),
@@ -46,31 +49,31 @@ def apply_openstack_options(func):
 
     return func
 
+
 class ClientNotAvailable(Exception):
     pass
 
+
 class OpenStack(object):
-    def __init__(self, **kwargs):
-        kwargs = {k: v for k, v in kwargs.items()
+    '''Loads authentication configuration using os_client_config and creates
+    a keystoneauth1 session for authenticating to other services.'''
+
+    def __init__(self, cloud=None, **kwargs):
+        params = {k: v for k, v in kwargs.items()
                   if k in openstack_auth_option_names}
 
-        params = self.params_from_env()
-        params.update(kwargs)
-        self.params = params
+        try:
+            cfg = os_client_config.config.OpenStackConfig().get_one_cloud(cloud=cloud, **params)
+            sess = cfg.get_session()
+        except (
+                keystoneauth1.exceptions.ClientException,
+                os_client_config.exceptions.OpenStackConfigException
+        ) as exc:
+            raise common.ExitCritical(
+                'Failed to authenticate: {}'.format(exc))
 
-        loader = keystoneauth1.loading.get_plugin_loader('password')
-        auth = loader.load_from_options(**params)
-        sess = keystoneauth1.session.Session(auth=auth)
-
-        self.auth = auth
+        self.cfg = cfg
         self.sess = sess
-
-    def params_from_env(self):
-        params = {name: os.environ.get('OS_{}'.format(name.upper()))
-                  for name in openstack_auth_option_names
-                  if 'OS_{}'.format(name.upper()) in os.environ}
-
-        return params
 
 
 if __name__ == '__main__':

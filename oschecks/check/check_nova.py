@@ -36,10 +36,6 @@ def check_api(ctx,
         raise common.ExitCritical(
             'Failed to list servers: {}'.format(exc),
             duration=t.interval)
-    except keystoneauth1.exceptions.ClientException as exc:
-        raise common.ExitCritical(
-            'Failed to authenticate: {}'.format(exc))
-
 
     msg = 'Found {} servers'.format(len(servers))
 
@@ -79,10 +75,6 @@ def check_flavor_exists(ctx,
         raise common.ExitCritical(
             'Failed to get flavor {}: {}'.format(flavor, exc),
             duration=t.interval)
-    except keystoneauth1.exceptions.ClientException as exc:
-        raise common.ExitCritical(
-            'Failed to authenticate: {}'.format(exc))
-
 
     msg = 'Found flavor {} with id {}'.format(res.name, res.id)
 
@@ -126,10 +118,6 @@ def check_server_exists(ctx,
         raise common.ExitCritical(
             'Failed to get server {}: {}'.format(server, exc),
             duration=t.interval)
-    except keystoneauth1.exceptions.ClientException as exc:
-        raise common.ExitCritical(
-            'Failed to authenticate: {}'.format(exc))
-
 
     msg = 'Found server {} with id {}'.format(res.name, res.id)
 

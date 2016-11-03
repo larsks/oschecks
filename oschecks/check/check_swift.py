@@ -32,10 +32,6 @@ def check_api(ctx,
         raise common.ExitCritical(
             'Failed to list containers: {}'.format(exc),
             duration=t.interval)
-    except keystoneauth1.exceptions.ClientException as exc:
-        raise common.ExitCritical(
-            'Failed to authenticate: {}'.format(exc))
-
 
     msg = 'Found {} containers'.format(len(containers))
 
@@ -69,9 +65,6 @@ def check_container_exists(ctx,
             msg = 'Failed to get container {}: {}'.format(container, exc),
 
         raise common.ExitCritical(msg, duration=t.interval)
-    except keystoneauth1.exceptions.ClientException as exc:
-        raise common.ExitCritical(
-            'Failed to authenticate: {}'.format(exc))
 
     msg = 'Found container {}'.format(container)
 
@@ -110,9 +103,6 @@ def check_object_exists(ctx,
                 obj, container, exc),
 
         raise common.ExitCritical(msg, duration=t.interval)
-    except keystoneauth1.exceptions.ClientException as exc:
-        raise common.ExitCritical(
-            'Failed to authenticate: {}'.format(exc))
 
     msg = 'Found object {} in container {} with {} bytes'.format(
         obj, container, res[0]['content-length'])

@@ -38,9 +38,6 @@ def check_api(ctx,
         raise common.ExitCritical(
             'Failed to list volumes: {}'.format(exc),
             duration=t.interval)
-    except keystoneauth1.exceptions.ClientException as exc:
-        raise common.ExitCritical(
-            'Failed to authenticate: {}'.format(exc))
 
 
     msg = 'Found {} volumes'.format(len(volumes))
@@ -84,9 +81,6 @@ def check_volume_exists(ctx,
         raise common.ExitCritical(
             'Failed to get volume {}: {}'.format(volume, exc),
             duration=t.interval)
-    except keystoneauth1.exceptions.ClientException as exc:
-        raise common.ExitCritical(
-            'Failed to authenticate: {}'.format(exc))
 
     msg = 'Found volume {} with id {}'.format(
         res.name, res.id)

@@ -1,5 +1,6 @@
 click
 click_plugins
+os_client_config
 python-keystoneclient
 python-novaclient
 python-glanceclient

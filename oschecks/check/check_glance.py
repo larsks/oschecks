@@ -39,9 +39,6 @@ def check_api(ctx,
         raise common.ExitCritical(
             'Failed to list images: {}'.format(exc),
             duration=t.interval)
-    except keystoneauth1.exceptions.ClientException as exc:
-        raise common.ExitCritical(
-            'Failed to authenticate: {}'.format(exc))
 
 
     msg = 'Found {} images'.format(len(images))
@@ -91,9 +88,6 @@ def check_image_exists(ctx,
         raise common.ExitCritical(
             'Failed to get images {}: {}'.format(image, exc),
             duration=t.interval)
-    except keystoneauth1.exceptions.ClientException as exc:
-        raise common.ExitCritical(
-            'Failed to authenticate: {}'.format(exc))
 
 
     msg = 'Found images {} with id {}'.format(res.name, res.id)

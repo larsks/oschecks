@@ -34,7 +34,6 @@ def check_api(ctx,
         raise common.ExitCritical(
             'Failed to authenticate: {}'.format(exc))
 
-
     msg = 'Keystone is active'
 
     if timeout_critical is not None and t.interval >= timeout_critical:
@@ -70,10 +69,6 @@ def check_service_exists(ctx,
         raise common.ExitCritical(
             'Service {} does not exist'.format(service_type),
             duration=t.interval)
-    except keystoneauth1.exceptions.ClientException as exc:
-        raise common.ExitCritical(
-            'Failed to authenticate: {}'.format(exc))
-
 
     msg = 'Service {} exists at {}'.format(service_type, endpoint_url)
 
@@ -129,9 +124,6 @@ def check_service_alive(ctx,
         raise common.ExitCritical(
             'Service {} does not exist'.format(service_type),
             duration=t.interval)
-    except keystoneauth1.exceptions.ClientException as exc:
-        raise common.ExitCritical(
-            'Failed to authenticate: {}'.format(exc))
 
     msg = 'Received status {} from service {} at {}'.format(
         res.status_code, service_type, endpoint_url)
