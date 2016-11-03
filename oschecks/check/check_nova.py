@@ -1,131 +1,111 @@
-import click
 import novaclient.client
-
 import oschecks.openstack as openstack
 import oschecks.common as common
 
 
-@click.group('nova')
-@openstack.apply_openstack_options
-@click.pass_context
-def cli(ctx, **kwargs):
-    '''Health checks for Openstack Nova'''
-    ctx.obj.auth = openstack.OpenStack(**kwargs)
+class CheckAPI(openstack.OpenstackCommand):
+    def get_parser(self, prog_name):
+        p = super(CheckAPI, self).get_parser(prog_name)
 
+        g = p.add_argument_group('Compute API Options')
+        g.add_argument('--os-compute-api-version', default=2)
 
-@cli.command()
-@click.option('--os-compute-api-version', default='2',
-              envvar='OS_COMPUTE_API_VERSION')
-@common.apply_common_options
-@click.pass_context
-def check_api(ctx,
-              os_compute_api_version=None,
-              timeout_warning=None,
-              timeout_critical=None,
-              limit=None):
-    '''Check if Nova API is responding.'''
+        return p
 
-    try:
-        nova = novaclient.client.Client(os_compute_api_version,
-                                        session=ctx.obj.auth.sess)
-
-        with common.Timer() as t:
-            servers = nova.servers.list(limit=limit)
-
-    except novaclient.exceptions.ClientException as exc:
-        raise common.ExitCritical(
-            'Failed to list servers: {}'.format(exc),
-            duration=t.interval)
-
-    msg = 'Found {} servers'.format(len(servers))
-
-    if timeout_critical is not None and t.interval >= timeout_critical:
-        raise common.ExitCritical(msg, duration=t.interval)
-    elif timeout_warning is not None and t.interval >= timeout_warning:
-        raise common.ExitWarning(msg, duration=t.interval)
-    else:
-        raise common.ExitOkay(msg, duration=t.interval)
-
-
-@cli.command()
-@click.option('--os-compute-api-version', default='2',
-              envvar='OS_COMPUTE_API_VERSION')
-@common.apply_common_options
-@click.argument('flavor', default='m1.small')
-@click.pass_context
-def check_flavor_exists(ctx,
-                        os_compute_api_version=None,
-                        timeout_warning=None,
-                        timeout_critical=None,
-                        limit=None,
-                        flavor=None):
-    '''Check if the named flavor exists.'''
-
-    try:
-        nova = novaclient.client.Client(os_compute_api_version,
-                                        session=ctx.obj.auth.sess)
+    def take_action(self, parsed_args):
+        '''Check if Nova API is responding.'''
+        super(CheckAPI, self).take_action(parsed_args)
 
         try:
+            nova = novaclient.client.Client(
+                parsed_args.os_compute_api_version,
+                session=self.auth.sess)
+
             with common.Timer() as t:
-                res = nova.flavors.get(flavor)
-        except novaclient.exceptions.NotFound:
-            with common.Timer() as t:
-                res = nova.flavors.find(name=flavor)
+                servers = nova.servers.list(limit=parsed_args.limit)
+        except novaclient.exceptions.ClientException as exc:
+            return (common.RET_CRIT,
+                    'Failed to list servers: {}'.format(exc),
+                    t)
 
-    except novaclient.exceptions.ClientException as exc:
-        raise common.ExitCritical(
-            'Failed to get flavor {}: {}'.format(flavor, exc),
-            duration=t.interval)
+        msg = 'Found {} servers'.format(len(servers))
 
-    msg = 'Found flavor {} with id {}'.format(res.name, res.id)
-
-    if timeout_critical is not None and t.interval >= timeout_critical:
-        raise common.ExitCritical(msg, duration=t.interval)
-    elif timeout_warning is not None and t.interval >= timeout_warning:
-        raise common.ExitWarning(msg, duration=t.interval)
-    else:
-        raise common.ExitOkay(msg, duration=t.interval)
+        return (common.RET_OKAY, msg, t)
 
 
-@cli.command()
-@click.option('--os-compute-api-version', default='2',
-              envvar='OS_COMPUTE_API_VERSION')
-@common.apply_common_options
-@click.argument('server')
-@click.pass_context
-def check_server_exists(ctx,
-                        os_compute_api_version=None,
-                        timeout_warning=None,
-                        timeout_critical=None,
-                        limit=None,
-                        server=None):
-    '''Check if the named server exists.'''
+class CheckFlavorExists(openstack.OpenstackCommand):
+    def get_parser(self, prog_name):
+        p = super(CheckFlavorExists, self).get_parser(prog_name)
 
-    try:
-        nova = novaclient.client.Client(os_compute_api_version,
-                                        session=ctx.obj.auth.sess)
+        g = p.add_argument_group('Compute API Options')
+        g.add_argument('--os-compute-api-version', default=2)
+        g.add_argument('flavor_name', nargs='?', default='m1.small')
+
+        return p
+
+    def take_action(self, parsed_args):
+        '''Check if the named flavor exists.'''
+        super(CheckFlavorExists, self).take_action(parsed_args)
 
         try:
-            with common.Timer() as t:
-                res = nova.servers.get(server)
-        except novaclient.exceptions.NotFound:
-            with common.Timer() as t:
-                res = nova.servers.find(name=server)
+            nova = novaclient.client.Client(
+                parsed_args.os_compute_api_version,
+                session=self.auth.sess)
 
-    except novaclient.exceptions.NoUniqueMatch:
-        raise common.ExitWarning(
-            'Too many matches for server {}'.format(server),
-            duration=t.interval)
-    except novaclient.exceptions.ClientException as exc:
-        raise common.ExitCritical(
-            'Failed to get server {}: {}'.format(server, exc),
-            duration=t.interval)
+            try:
+                with common.Timer() as t:
+                    flavor = nova.flavors.get(parsed_args.flavor_name)
+            except novaclient.exceptions.NotFound:
+                with common.Timer() as t:
+                    flavor = nova.flavors.find(name=parsed_args.flavor_name)
+        except novaclient.exceptions.ClientException as exc:
+            return (common.RET_CRIT,
+                    'Failed to list servers: {}'.format(exc),
+                    t)
 
-    msg = 'Found server {} with id {}'.format(res.name, res.id)
+        msg = 'Found flavor {} with id {}'.format(
+            flavor.name, flavor.id)
 
-    if timeout_critical is not None and t.interval >= timeout_critical:
-        raise common.ExitCritical(msg, duration=t.interval)
-    elif timeout_warning is not None and t.interval >= timeout_warning:
-        raise common.ExitWarning(msg, duration=t.interval)
-    else:
-        raise common.ExitOkay(msg, duration=t.interval)
+        return (common.RET_OKAY, msg, t)
+
+
+class CheckServerExists(openstack.OpenstackCommand):
+    def get_parser(self, prog_name):
+        p = super(CheckServerExists, self).get_parser(prog_name)
+
+        g = p.add_argument_group('Compute API Options')
+        g.add_argument('--os-compute-api-version', default=2)
+        g.add_argument('server_name')
+
+        return p
+
+    def take_action(self, parsed_args):
+        '''Check if the named server exists.'''
+        super(CheckServerExists, self).take_action(parsed_args)
+
+        try:
+            nova = novaclient.client.Client(
+                parsed_args.os_compute_api_version,
+                session=self.auth.sess)
+
+            try:
+                with common.Timer() as t:
+                    server = nova.servers.get(parsed_args.server_name)
+            except novaclient.exceptions.NotFound:
+                with common.Timer() as t:
+                    server = nova.servers.find(name=parsed_args.server_name)
+        except novaclient.exceptions.NoUniqueMatch:
+            return (common.RET_WARN,
+                    'Too many matches for server {}'.format(
+                        parsed_args.server_name),
+                    t)
+        except novaclient.exceptions.ClientException as exc:
+            return (common.RET_CRIT,
+                    'Failed to locate server {}: {}'.format(
+                        parsed_args.server_name, exc),
+                    t)
+
+        msg = 'Found server {} with id {}'.format(
+            server.name, server.id)
+
+        return (common.RET_OKAY, msg, t)

@@ -1,6 +1,5 @@
 # command line argument processing
-click
-click_plugins
+cliff
 
 # read openstack credentials from config file or environment
 os_client_config
