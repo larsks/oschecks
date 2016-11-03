@@ -1,11 +1,11 @@
 import click
 import keystoneauth1
 import keystoneclient
-import time
 import requests
 
 import oschecks.openstack as openstack
 import oschecks.common as common
+
 
 @click.group('keystone')
 @openstack.apply_openstack_options
@@ -13,6 +13,7 @@ import oschecks.common as common
 def cli(ctx, **kwargs):
     '''Health checks for Openstack Keystone'''
     ctx.obj.auth = openstack.OpenStack(**kwargs)
+
 
 @cli.command()
 @click.option('--os-identity-api-version', default='2',
@@ -28,8 +29,12 @@ def check_api(ctx,
 
     try:
         with common.Timer() as t:
-            keystone = keystoneclient.client.Client(os_identity_api_version,
-                                                    session=ctx.obj.auth.sess)
+            keystone = keystoneclient.client.Client(
+                os_identity_api_version,
+                session=ctx.obj.auth.sess)
+
+            # this just stops flake8 from complaining
+            keystone
     except keystoneauth1.exceptions.ClientException as exc:
         raise common.ExitCritical(
             'Failed to authenticate: {}'.format(exc))
@@ -42,6 +47,7 @@ def check_api(ctx,
         raise common.ExitWarning(msg, duration=t.interval)
     else:
         raise common.ExitOkay(msg, duration=t.interval)
+
 
 @cli.command()
 @click.option('--os-identity-api-version', default='2',
@@ -78,6 +84,7 @@ def check_service_exists(ctx,
         raise common.ExitWarning(msg, duration=t.interval)
     else:
         raise common.ExitOkay(msg, duration=t.interval)
+
 
 @cli.command()
 @click.option('--os-identity-api-version', default='2',

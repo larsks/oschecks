@@ -2,11 +2,10 @@ import click
 import cinderclient
 import cinderclient.exceptions
 import cinderclient.client
-import keystoneauth1
-import time
 
 import oschecks.openstack as openstack
 import oschecks.common as common
+
 
 @click.group('cinder')
 @openstack.apply_openstack_options
@@ -14,6 +13,7 @@ import oschecks.common as common
 def cli(ctx, **kwargs):
     '''Health checks for Openstack Cinder'''
     ctx.obj.auth = openstack.OpenStack(**kwargs)
+
 
 @cli.command()
 @click.option('--os-volume-api-version', default='2',
@@ -39,7 +39,6 @@ def check_api(ctx,
             'Failed to list volumes: {}'.format(exc),
             duration=t.interval)
 
-
     msg = 'Found {} volumes'.format(len(volumes))
 
     if timeout_critical is not None and t.interval >= timeout_critical:
@@ -48,6 +47,7 @@ def check_api(ctx,
         raise common.ExitWarning(msg, duration=t.interval)
     else:
         raise common.ExitOkay(msg, duration=t.interval)
+
 
 @cli.command()
 @click.option('--os-volume-api-version', default='2',

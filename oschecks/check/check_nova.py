@@ -1,10 +1,9 @@
 import click
-import novaclient
-import keystoneauth1
-import time
+import novaclient.client
 
 import oschecks.openstack as openstack
 import oschecks.common as common
+
 
 @click.group('nova')
 @openstack.apply_openstack_options
@@ -12,6 +11,7 @@ import oschecks.common as common
 def cli(ctx, **kwargs):
     '''Health checks for Openstack Nova'''
     ctx.obj.auth = openstack.OpenStack(**kwargs)
+
 
 @cli.command()
 @click.option('--os-compute-api-version', default='2',
@@ -45,6 +45,7 @@ def check_api(ctx,
         raise common.ExitWarning(msg, duration=t.interval)
     else:
         raise common.ExitOkay(msg, duration=t.interval)
+
 
 @cli.command()
 @click.option('--os-compute-api-version', default='2',
@@ -84,6 +85,7 @@ def check_flavor_exists(ctx,
         raise common.ExitWarning(msg, duration=t.interval)
     else:
         raise common.ExitOkay(msg, duration=t.interval)
+
 
 @cli.command()
 @click.option('--os-compute-api-version', default='2',

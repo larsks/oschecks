@@ -2,7 +2,6 @@
 
 import click
 import logging
-import os
 import keystoneauth1
 import os_client_config as os_client_config
 
@@ -43,6 +42,7 @@ openstack_options = [
     for name in openstack_auth_option_names
 ]
 
+
 def apply_openstack_options(func):
     for opt in openstack_options:
         func = opt(func)
@@ -63,7 +63,10 @@ class OpenStack(object):
                   if k in openstack_auth_option_names}
 
         try:
-            cfg = os_client_config.config.OpenStackConfig().get_one_cloud(cloud=cloud, **params)
+            cfg = (
+                os_client_config.config
+                .OpenStackConfig()
+                .get_one_cloud(cloud=cloud, **params))
             sess = cfg.get_session()
         except (
                 keystoneauth1.exceptions.ClientException,

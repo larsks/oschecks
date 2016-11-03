@@ -1,13 +1,13 @@
 import click
 import glanceclient
-import keystoneauth1
-import time
 
 import oschecks.openstack as openstack
 import oschecks.common as common
 
+
 class NoUniqueMatch(Exception):
     pass
+
 
 @click.group('glance')
 @openstack.apply_openstack_options
@@ -15,6 +15,7 @@ class NoUniqueMatch(Exception):
 def cli(ctx, **kwargs):
     '''Health checks for Openstack Glance'''
     ctx.obj.auth = openstack.OpenStack(**kwargs)
+
 
 @cli.command()
 @click.option('--os-image-api-version', default='2',
@@ -40,7 +41,6 @@ def check_api(ctx,
             'Failed to list images: {}'.format(exc),
             duration=t.interval)
 
-
     msg = 'Found {} images'.format(len(images))
 
     if timeout_critical is not None and t.interval >= timeout_critical:
@@ -49,6 +49,7 @@ def check_api(ctx,
         raise common.ExitWarning(msg, duration=t.interval)
     else:
         raise common.ExitOkay(msg, duration=t.interval)
+
 
 @cli.command()
 @click.option('--os-image-api-version', default='2',
@@ -88,7 +89,6 @@ def check_image_exists(ctx,
         raise common.ExitCritical(
             'Failed to get images {}: {}'.format(image, exc),
             duration=t.interval)
-
 
     msg = 'Found images {} with id {}'.format(res.name, res.id)
 

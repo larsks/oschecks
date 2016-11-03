@@ -1,10 +1,9 @@
 import click
 import swiftclient
-import keystoneauth1
-import time
 
 import oschecks.openstack as openstack
 import oschecks.common as common
+
 
 @click.group('swift')
 @openstack.apply_openstack_options
@@ -12,6 +11,7 @@ import oschecks.common as common
 def cli(ctx, **kwargs):
     '''Health checks for Openstack Swift'''
     ctx.obj.auth = openstack.OpenStack(**kwargs)
+
 
 @cli.command()
 @common.apply_common_options
@@ -42,6 +42,7 @@ def check_api(ctx,
     else:
         raise common.ExitOkay(msg, duration=t.interval)
 
+
 @cli.command()
 @common.apply_common_options
 @click.argument('container')
@@ -66,7 +67,8 @@ def check_container_exists(ctx,
 
         raise common.ExitCritical(msg, duration=t.interval)
 
-    msg = 'Found container {}'.format(container)
+    msg = 'Found container {} with {} objects'.format(
+        container, res[0]['x-container-object-count'])
 
     if timeout_critical is not None and t.interval >= timeout_critical:
         raise common.ExitCritical(msg, duration=t.interval)

@@ -15,14 +15,16 @@ common_options = [
                  type=int, default=10,
                  help='Critical timeout for API calls'),
     click.option('--limit', '-l', type=int, default=1,
-                  help='Maximum number of objects to list')
+                 help='Maximum number of objects to list')
 ]
+
 
 def apply_common_options(func):
     for opt in common_options:
         func = opt(func)
 
     return func
+
 
 class Timer(object):
     def __init__(self):
@@ -51,26 +53,34 @@ class ExitException(click.ClickException):
         output.write(self.format_message())
         output.write('\n')
 
+
 class ExitOkay(ExitException):
     exit_code = RET_OKAY
+
     def __init__(self, msg, duration=None):
         super(ExitOkay, self).__init__('OKAY: {}'.format(msg),
                                        duration=duration)
 
+
 class ExitWarning(ExitException):
     exit_code = RET_WARN
+
     def __init__(self, msg, duration=None):
         super(ExitWarning, self).__init__('WARNING: {}'.format(msg),
                                           duration=duration)
 
+
 class ExitCritical(ExitException):
     exit_code = RET_CRIT
+
     def __init__(self, msg, duration=None):
         super(ExitCritical, self).__init__('CRITICAL: {}'.format(msg),
                                            duration=duration)
 
+
 class ExitWTF(ExitException):
     exit_code = RET_WTF
+
     def __init__(self, msg, duration=None):
         super(ExitCritical, self).__init__('UNKNOWN: {}'.format(msg),
                                            duration=duration)
