@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import cliff.command
+import logging
 import time
 
 RET_OKAY = 0
@@ -85,9 +86,17 @@ class TimeoutCommand (CheckCommand):
             return self.format_result(RET_OKAY, msg)
 
 
+class TimeoutError(Exception):
+    pass
+
+
 class Timer(object):
-    def __init__(self):
+
+    log = logging.getLogger(__name__)
+
+    def __init__(self, timeout=None):
         self.interval = 0
+        self.timeout = timeout
 
     def __enter__(self):
         self.time_start = time.time()
@@ -96,3 +105,10 @@ class Timer(object):
     def __exit__(self, *args):
         self.time_end = time.time()
         self.interval = self.time_end - self.time_start
+
+    def tick(self):
+        if self.timeout:
+            time_now = time.time()
+            delta = time_now - self.time_start
+            if delta > self.timeout:
+                raise TimeoutError(delta)
