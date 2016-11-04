@@ -6,7 +6,27 @@ import oschecks.openstack as openstack
 import oschecks.common as common
 
 
-class CheckAPI(openstack.OpenstackCommand):
+class KeystoneCommand(openstack.OpenstackCommand):
+    def take_action(self, parsed_args):
+        super(KeystoneCommand, self).take_action(parsed_args)
+
+        try:
+            self.keystone = keystoneclient.client.Client(
+                parsed_args.os_identity_api_version,
+                session=self.auth.sess)
+        except keystoneauth1.exceptions.ClientException as exc:
+            raise common.ExitCritical(
+                   'Failed to authenticate: {}'.format(exc))
+
+    def get_endpoint(self, service_type, service_name=None):
+        endpoint_url = self.auth.sess.get_endpoint(
+            service_type=service_type,
+            service_name=service_name)
+
+        return endpoint_url
+
+
+class CheckAPI(KeystoneCommand):
     def get_parser(self, prog_name):
         p = super(CheckAPI, self).get_parser(prog_name)
 
@@ -19,25 +39,14 @@ class CheckAPI(openstack.OpenstackCommand):
         '''Check if the Keystone API is responding.'''
         super(CheckAPI, self).take_action(parsed_args)
 
-        try:
-            with common.Timer() as t:
-                keystone = keystoneclient.client.Client(
-                    parsed_args.os_identity_api_version,
-                    session=self.auth.sess)
-
-                # this just stops flake8 from complaining
-                keystone
-        except keystoneauth1.exceptions.ClientException as exc:
-            return(common.RET_CRIT,
-                   'Failed to authenticate: {}'.format(exc),
-                   None)
-
+        # This check is mostly a no-op because if we are able to get a
+        # keystone client in KeystoneCommand, we already know Keystone
+        # is running.
         msg = 'Keystone is active'
+        return (common.RET_OKAY, msg, None)
 
-        return (common.RET_OKAY, msg, t)
 
-
-class CheckServiceExists(openstack.OpenstackCommand):
+class CheckServiceExists(KeystoneCommand):
     def get_parser(self, prog_name):
         p = super(CheckServiceExists, self).get_parser(prog_name)
 
@@ -56,7 +65,7 @@ class CheckServiceExists(openstack.OpenstackCommand):
 
         try:
             with common.Timer() as t:
-                endpoint_url = self.auth.sess.get_endpoint(
+                endpoint_url = self.get_endpoint(
                     service_type=parsed_args.service_type,
                     service_name=parsed_args.service_name)
         except keystoneauth1.exceptions.EndpointNotFound:
@@ -70,7 +79,8 @@ class CheckServiceExists(openstack.OpenstackCommand):
 
         return (common.RET_OKAY, msg, t)
 
-class CheckServiceAlive(openstack.OpenstackCommand):
+
+class CheckServiceAlive(KeystoneCommand):
     def get_parser(self, prog_name):
         p = super(CheckServiceAlive, self).get_parser(prog_name)
 
@@ -100,7 +110,7 @@ class CheckServiceAlive(openstack.OpenstackCommand):
         super(CheckServiceAlive, self).take_action(parsed_args)
 
         try:
-            endpoint_url = self.auth.sess.get_endpoint(
+            endpoint_url = self.get_endpoint(
                 service_type=parsed_args.service_type,
                 service_name=parsed_args.service_name)
 

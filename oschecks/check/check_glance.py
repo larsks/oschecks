@@ -7,7 +7,22 @@ class NonUniqueMatch(Exception):
     pass
 
 
-class CheckAPI(openstack.OpenstackCommand):
+class GlanceCommand(openstack.OpenstackCommand):
+    '''This is the base class for all the Glance checks.'''
+
+    def take_action(self, parsed_args):
+        super(GlanceCommand, self).take_action(parsed_args)
+
+        try:
+            self.glance = glanceclient.client.Client(
+                parsed_args.os_image_api_version,
+                session=self.auth.sess)
+        except glanceclient.exc.ClientException as exc:
+            raise common.ExitCritical(
+                    'Failed to create Glance client: {}'.format(exc))
+
+
+class CheckAPI(GlanceCommand):
     def get_parser(self, prog_name):
         p = super(CheckAPI, self).get_parser(prog_name)
 
@@ -21,14 +36,9 @@ class CheckAPI(openstack.OpenstackCommand):
         super(CheckAPI, self).take_action(parsed_args)
 
         try:
-            glance = glanceclient.client.Client(
-                parsed_args.os_image_api_version,
-                session=self.auth.sess)
-
             with common.Timer() as t:
-                images = list(glance.images.list(
+                images = list(self.glance.images.list(
                     limit=parsed_args.limit))
-
         except glanceclient.exc.ClientException as exc:
             return (common.RET_CRIT,
                     'Failed to list images: {}'.format(exc),
@@ -39,7 +49,7 @@ class CheckAPI(openstack.OpenstackCommand):
         return (common.RET_OKAY, msg, t)
 
 
-class CheckImageExists(openstack.OpenstackCommand):
+class CheckImageExists(GlanceCommand):
     def get_parser(self, prog_name):
         p = super(CheckImageExists, self).get_parser(prog_name)
 
@@ -54,17 +64,13 @@ class CheckImageExists(openstack.OpenstackCommand):
         super(CheckImageExists, self).take_action(parsed_args)
 
         try:
-            glance = glanceclient.client.Client(
-                parsed_args.os_image_api_version,
-                session=self.auth.sess)
-
             try:
                 with common.Timer() as t:
-                    image = glance.images.get(
+                    image = self.glance.images.get(
                         parsed_args.image_name)
             except glanceclient.exc.NotFound:
                 with common.Timer() as t:
-                    images = [image for image in glance.images.list()
+                    images = [image for image in self.glance.images.list()
                               if image.name == parsed_args.image_name]
 
                     if not images:

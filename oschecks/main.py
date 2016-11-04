@@ -6,6 +6,8 @@ import sys
 
 
 class App(cliff.app.App):
+    '''An application that provides health checks for Openstack and other
+    services.'''
     def __init__(self):
         super(App, self).__init__(
             description='oschecks health checks',

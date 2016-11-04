@@ -11,8 +11,9 @@ import oschecks.common as common
 
 
 class CinderCommand(openstack.OpenstackCommand):
+    '''This is the base class for all the Cinder checks.'''
+
     def take_action(self, parsed_args):
-        '''Check if the Cinder API is responding.'''
         super(CinderCommand, self).take_action(parsed_args)
 
         try:
@@ -21,7 +22,7 @@ class CinderCommand(openstack.OpenstackCommand):
                 session=self.auth.sess)
         except cinderclient.exceptions.ClientException as exc:
             raise common.ExitCritical(
-                'Unable to create Cinder client: {}'.format(exc))
+                'Failed to create Cinder client: {}'.format(exc))
 
     def volume_exists(self, volume_name):
         try:

@@ -4,22 +4,10 @@ import cliff.command
 import logging
 import time
 
-RET_OKAY = 0
-RET_WARN = 1
-RET_CRIT = 2
-RET_WTF = 3
-
-
-class Exitcode(Exception):
-    exitcode = RET_WTF
-
-
-class ExitCritical(Exitcode):
-    exitcode = RET_CRIT
-
-
-class ExitWarning(Exitcode):
-    exitcode = RET_WARN
+from oschecks.exitcodes import (
+    Exitcode,
+    RET_OKAY, RET_WARN, RET_CRIT
+)
 
 
 class CheckCommand (cliff.command.Command):
@@ -68,14 +56,19 @@ class TimeoutCommand (CheckCommand):
         except Exitcode as exc:
             return self.format_result(exc.exitcode, str(exc))
 
+        # If we have no interval information, just exit normally.
         if t is None:
             return self.format_result(exitcode, msg)
 
         msg = '{} ({:0.4f} seconds)'.format(msg, t.interval)
 
+        # If there was a problem, don't override the status
+        # based on the timeouts.
         if exitcode != RET_OKAY:
             return self.format_result(exitcode, msg)
 
+        # Modify the return status based on how long
+        # the operation took to complete.
         if (parsed_args.timeout_critical and
                 t.interval >= parsed_args.timeout_critical):
             return self.format_result(RET_CRIT, msg)
@@ -87,12 +80,22 @@ class TimeoutCommand (CheckCommand):
 
 
 class TimeoutError(Exception):
+    '''Raised by a Timer object if it ticks past a configued timeout.'''
     pass
 
 
 class Timer(object):
+    '''A context manager for measuring the duration of an operation.  Use
+    it like this:
 
-    log = logging.getLogger(__name__)
+        with Timer() as t:
+          ...do something...
+
+        print ('The operation took {:02f} seconds.'.format(t.interval))
+  
+    If you provide a timeout value and periodically call the `tick` method,
+    a Timer object will raise a TimeoutError exception when the timeout 
+    is exceeded.'''
 
     def __init__(self, timeout=None):
         self.interval = 0

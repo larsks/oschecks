@@ -32,17 +32,6 @@ openstack_option_defaults = {
 }
 
 
-def apply_openstack_options(func):
-    for opt in openstack_options:
-        func = opt(func)
-
-    return func
-
-
-class ClientNotAvailable(Exception):
-    pass
-
-
 class Openstack(object):
     '''Loads authentication configuration using os_client_config and creates
     a keystoneauth1 session for authenticating to other services.'''
@@ -66,6 +55,9 @@ class Openstack(object):
 
 
 class OpenstackAuthCommand(common.CheckCommand):
+    '''A command that provides all the standard Keystone
+    authentication options.'''
+
     def get_parser(self, prog_name):
         p = super(OpenstackAuthCommand, self).get_parser(prog_name)
         g = p.add_argument_group('Openstack Authentication Options')
@@ -86,7 +78,9 @@ class OpenstackAuthCommand(common.CheckCommand):
 class OpenstackCommand(OpenstackAuthCommand,
                        common.TimeoutCommand,
                        common.LimitCommand):
-    pass
+    '''This is the base class used by most of the OpenStack API
+    checks.  It includes the Openstack authentication options, the
+    timing options (-w/--warning and -c/--critical), and the limit
+    options (-l/--limit).'''
 
-if __name__ == '__main__':
-    o = Openstack()
+    pass
