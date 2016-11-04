@@ -46,14 +46,17 @@ class LimitCommand (CheckCommand):
 
 
 class TimeoutCommand (CheckCommand):
+    default_timeout_warning = 5
+    default_timeout_critical = 10
+
     def get_parser(self, prog_name):
         p = super(TimeoutCommand, self).get_parser(prog_name)
         g = p.add_argument_group('Timeout Options')
 
         g.add_argument('--warning', '-w', dest='timeout_warning',
-                       type=int, default=5)
+                       type=int, default=self.default_timeout_warning)
         g.add_argument('--critical', '-c', dest='timeout_critical',
-                       type=int, default=10)
+                       type=int, default=self.default_timeout_critical)
 
         return p
 
