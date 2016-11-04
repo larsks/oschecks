@@ -4,8 +4,8 @@ import cliff.command
 import logging
 import time
 
-from oschecks.exitcodes import (
-    Exitcode,
+from oschecks.exitcodes import (  # NOQA
+    Exitcode, ExitCritical, ExitWarning, ExitOkay,
     RET_OKAY, RET_WARN, RET_CRIT
 )
 
@@ -99,9 +99,9 @@ class Timer(object):
           ...do something...
 
         print ('The operation took {:02f} seconds.'.format(t.interval))
-  
+
     If you provide a timeout value and periodically call the `tick` method,
-    a Timer object will raise a TimeoutError exception when the timeout 
+    a Timer object will raise a TimeoutError exception when the timeout
     is exceeded.'''
 
     def __init__(self, timeout=None):
