@@ -1,10 +1,7 @@
 import cinderclient
 import cinderclient.client
 import cinderclient.exceptions
-import logging
 import time
-
-from contextlib import contextmanager
 
 import oschecks.openstack as openstack
 import oschecks.common as common
@@ -24,23 +21,40 @@ class CinderCommand(openstack.OpenstackCommand):
             raise common.ExitCritical(
                 'Failed to create Cinder client: {}'.format(exc))
 
+    def get_volume(self, name_or_id):
+        try:
+            volume = self.cinder.volumes.get(name_or_id)
+        except cinderclient.exceptions.NotFound:
+            volume = self.cinder.volumes.find(name=name_or_id)
+
+        return volume
+
     def volume_exists(self, volume_name):
         try:
-            try:
-                # Try getting the volume by id
-                self.cinder.volumes.get(
-                    volume_name)
-            except cinderclient.exceptions.NotFound:
-                # Maybe it was a name after all
-                volumes = self.cinder.volumes.findall(
-                    name=volume_name)
-
-                return bool(volumes)
-        except:
-            print 'exception'
+            self.get_volume(volume_name)
+        except cinderclient.exceptions.NoUniqueMatch:
+            return True
+        except cinderclient.exceptions.NotFound:
             return False
         else:
             return True
+
+    def volume_status(self, volume):
+        try:
+            volume.get()
+            return volume.status
+        except cinderclient.exceptions.NotFound:
+            return 'deleted'
+
+    def wait_for_status(self, volume, status, timeout=None):
+        with common.Timer(timeout=timeout) as t:
+            while self.volume_status(volume) != status:
+                time.sleep(1)
+                t.tick()
+
+    def delete_volume(self, volume, timeout=None):
+        volume.delete()
+        self.wait_for_status(volume, 'deleted', timeout=timeout)
 
 
 class CheckAPI(CinderCommand):
@@ -109,53 +123,10 @@ class CheckVolumeExists(CinderCommand):
         return (common.RET_OKAY, msg, t)
 
 
-class temporaryVolume(object):
-    '''This is a context manager that is used by the create/delete
-    volume check to ensure that the test volume is deleted.'''
-
-    log = logging.getLogger(__name__)
-
-    def __init__(self, cinder,
-                 volume_size, volume_name,
-                 volume_type=None,
-                 availability_zone=None,
-                 timeout=None):
-
-        self.cinder = cinder
-        self.volume_size = volume_size
-        self.volume_name = volume_name
-        self.volume_type = volume_type
-        self.availability_zone = availability_zone
-
-    def __enter__(self):
-        self.volume = self.cinder.volumes.create(
-            name=self.volume_name,
-            size=self.volume_size,
-            volume_type=self.volume_type,
-            availability_zone=self.availability_zone)
-        self.log.info('created volume {0.name} '
-                      '(id {0.id}) with size {0.size}'.format(self.volume))
-
-    def __exit__(self, *args):
-        self.volume.delete()
-        self.log.info('deleted volume {0.name} '
-                      '(id {0.id}) with size {0.id}'.format(self.volume))
-
-    @property
-    def status(self):
-        self.volume.get()
-        return self.volume.status
-
-    def wait_ready(self, timeout=None):
-        with common.Timer(timeout=timeout) as t:
-            while self.status != 'available':
-                time.sleep(1)
-                t.tick()
-
-
 class CheckVolumeCreateDelete(CinderCommand):
 
-    log = logging.getLogger(__name__)
+    default_timeout_warning = 20
+    default_timeout_critical = 40
 
     def get_parser(self, prog_name):
         p = super(CheckVolumeCreateDelete, self).get_parser(prog_name)
@@ -166,42 +137,97 @@ class CheckVolumeCreateDelete(CinderCommand):
         g.add_argument('--volume-type')
         g.add_argument('--availability-zone')
         g.add_argument('--volume-ready-timeout', type=int, default=10)
+        g.add_argument('--volume-delete-timeout', type=int, default=10)
+        g.add_argument('--delete-existing', action='store_true')
         g.add_argument('volume_size', nargs='?', default=1, type=float)
 
         return p
+
+    def ensure_test_volume_exists(self, parsed_args, ctx):
+        '''Ensure the test volume exists'''
+
+        if not self.volume_exists(parsed_args.volume_name):
+            raise common.ExitCritical(
+                'Test volume {.volume_name} is missing '
+                '(but should exist)'.format(parsed_args))
+
+    def ensure_test_volume_is_absent(self, parsed_args, ctx):
+        '''Ensure the test volume is absent'''
+
+        if self.volume_exists(parsed_args.volume_name):
+            raise common.ExitCritical(
+                "Test volume {.volume_name} exists (but shouldn't)".format(
+                    parsed_args))
+
+    def delete_old_test_volume(self, parsed_args, ctx):
+        '''Delete existing test volume if --delete-existing'''
+        if parsed_args.delete_existing:
+            self.delete_test_volume(parsed_args, ctx)
+
+    def delete_test_volume(self, parsed_args, ctx):
+        '''Delete test volume'''
+        try:
+            volume = self.get_volume(parsed_args.volume_name)
+            volume.delete()
+            self.wait_for_status(volume, 'deleted',
+                                 timeout=parsed_args.volume_delete_timeout)
+        except cinderclient.exceptions.NoUniqueMatch:
+                raise common.ExitCritical(
+                    'Multiple volumes named {.volume_name}, aborting'.format(
+                        parsed_args))
+        except cinderclient.exceptions.NotFound:
+            pass
+
+    def create_test_volume(self, parsed_args, ctx):
+        '''Create test volume'''
+
+        volume = self.cinder.volumes.create(
+            name=parsed_args.volume_name,
+            size=parsed_args.volume_size,
+            volume_type=parsed_args.volume_type,
+            availability_zone=parsed_args.availability_zone)
+
+        ctx.volume_created = True
+
+        self.wait_for_status(volume, 'available',
+                             timeout=parsed_args.volume_ready_timeout)
 
     def take_action(self, parsed_args):
         '''Check if the named Cinder volume exists.'''
         super(CheckVolumeCreateDelete, self).take_action(parsed_args)
 
-        if self.volume_exists(parsed_args.volume_name):
-            return (common.RET_CRIT,
-                    'A volume named "{}" already exists'.format(
-                        parsed_args.volume_name),
-                    None)
+        test_plan = (
+            self.delete_old_test_volume,
+            self.ensure_test_volume_is_absent,
+            self.create_test_volume,
+            self.ensure_test_volume_exists,
+            self.delete_test_volume,
+            self.ensure_test_volume_is_absent,
+        )
 
-        volume = temporaryVolume(
-            self.cinder,
-            parsed_args.volume_size,
-            parsed_args.volume_name,
-            volume_type=parsed_args.volume_type,
-            availability_zone=parsed_args.availability_zone)
+        with common.Timer() as t:
+            try:
+                ctx = lambda: None
+                ctx.volume_created = False
+                for step in test_plan:
+                    self.log.info('running step: {}'.format(
+                        step.__doc__))
+                    step(parsed_args, ctx)
+            except cinderclient.exceptions.ClientException as exc:
+                raise common.ExitCritical(
+                    '{} failed: {}'.format(step.__doc__, exc))
+            except common.TimeoutError:
+                raise common.ExitCritical(
+                    '{} timed out'.format(step.__doc__))
+            finally:
+                try:
+                    if ctx.volume_created:
+                        self.delete_test_volume(parsed_args, ctx)
+                except cinderclient.exceptions.ClientException as exc:
+                    raise common.ExitCritical(
+                        'Failed to delete test volume: {}'.format(exc))
 
-        try:
-            with common.Timer() as t, volume:
-                volume.wait_ready(timeout=parsed_args.volume_ready_timeout)
-        except common.TimeoutError as exc:
-            return (common.RET_CRIT,
-                    'Timeout waiting for volume {} to become ready'.format(
-                        parsed_args.volume_name),
-                    t)
-        except cinderclient.exceptions.ClientException as exc:
-            return (common.RET_CRIT,
-                    'Failed to create/delete {}: {}'.format(
-                        parsed_args.volume_name, exc),
-                    t)
-
-        msg = 'Successfully created and deleted volume {}'.format(
-            parsed_args.volume_name)
+        msg = 'Successfully created and deleted volume {.volume_name}'.format(
+            parsed_args)
 
         return (common.RET_OKAY, msg, t)
