@@ -47,15 +47,12 @@ class Openstack(object):
     '''Loads authentication configuration using os_client_config and creates
     a keystoneauth1 session for authenticating to other services.'''
 
-    def __init__(self, cloud=None, **kwargs):
-        params = {k: v for k, v in kwargs.items()
-                  if k in openstack_option_names}
-
+    def __init__(self, parsed_args):
         try:
             cfg = (
                 os_client_config.config
                 .OpenStackConfig()
-                .get_one_cloud(cloud=cloud, **params))
+                .get_one_cloud(argparse=parsed_args))
             sess = cfg.get_session()
         except (
                 keystoneauth1.exceptions.ClientException,
@@ -83,7 +80,7 @@ class OpenstackAuthCommand(common.CheckCommand):
         return p
 
     def take_action(self, parsed_args):
-        self.auth = Openstack(**vars(parsed_args))
+        self.auth = Openstack(parsed_args)
 
 
 class OpenstackCommand(OpenstackAuthCommand,
