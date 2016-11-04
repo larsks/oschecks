@@ -1,13 +1,9 @@
 #!/usr/bin/python
 
-import cliff.command
-import logging
 import keystoneauth1
 import os_client_config as os_client_config
 
 import oschecks.common as common
-
-LOG = logging.getLogger(__name__)
 
 openstack_option_names = [
     'auth_url',

@@ -11,6 +11,13 @@ from oschecks.exitcodes import (
 
 
 class CheckCommand (cliff.command.Command):
+
+    def __init__(self, *args, **kwargs):
+        super(CheckCommand, self).__init__(*args, **kwargs)
+
+        self.log = logging.getLogger(
+            '{0.__class__.__module__}.{0.__class__.__name__}'.format(self))
+
     def format_result(self, retcode, msg):
         label = {
             RET_OKAY: 'OKAY',

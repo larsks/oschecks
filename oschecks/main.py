@@ -1,13 +1,19 @@
 import cliff.app
 import cliff.commandmanager
-import logging
 import oschecks
 import sys
+import logging
+import argparse
 
 
 class App(cliff.app.App):
     '''An application that provides health checks for Openstack and other
     services.'''
+
+    # override some cliff defaults
+    CONSOLE_MESSAGE_FORMAT = '%(name)s %(message)s'
+    DEFAULT_VERBOSE_LEVEL = 0
+
     def __init__(self):
         super(App, self).__init__(
             description='oschecks health checks',
@@ -21,15 +27,22 @@ class App(cliff.app.App):
     def build_option_parser(self, description, version,
                             argparse_kwargs=None):
         p = super(App, self).build_option_parser(
-            description, version,
-            argparse_kwargs=argparse_kwargs)
+            description, version, argparse_kwargs=argparse_kwargs)
 
-        # cliff defaults to logging at INFO and above, which leads to
-        # unnecessary clutter.  This is the equivalent of setting
-        # --quiet by default.
-        p.set_defaults(verbose_level=0)
+        p.add_argument('--debug-requests',
+                       action='store_true',
+                       help=argparse.SUPPRESS)
 
         return p
+
+    def configure_logging(self, *args, **kwargs):
+        super(App, self).configure_logging(*args, **kwargs)
+
+        # inhibit log messages from the requests subsystem
+        # unless --debug-requests was on the command line
+        if not self.options.debug_requests:
+            log = logging.getLogger('requests')
+            log.setLevel('WARNING')
 
 
 def cli():
