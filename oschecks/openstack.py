@@ -21,6 +21,9 @@ openstack_option_names = [
     'user_domain_id',
     'user_domain_name',
     'username',
+    'cacert',
+    'cert',
+    'key'
 ]
 
 openstack_option_defaults = {
@@ -63,7 +66,11 @@ class OpenstackAuthCommand(common.CheckCommand):
                            dest=opt,
                            default=openstack_option_defaults.get(opt))
 
+        g.add_argument('--verify', dest='verify', action='store_true')
+        g.add_argument('--no-verify', dest='verify', action='store_false')
         g.add_argument('--cloud')
+
+        p.set_defaults(verify=True)
 
         return p
 
